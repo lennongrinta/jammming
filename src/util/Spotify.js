@@ -6,12 +6,12 @@ const redirectUri = 'http://localhost:3000/';
 let Spotify = {
 	getAccessToken() {
 		const url = window.location.href;
-		if(accessToken !== '') {
+		if(accessToken) {
 			return accessToken;
 		}
 		else if(url.includes('access_token') && url.includes('expires_in')) {
-			accessToken = url.match('/access_token=([^&]*)/')[1];
-			expiresIn = url.match('/expires_in=([^&]*)/')[1];
+			accessToken = url.match(/access_token=([^&]*)/)[1];
+			expiresIn = url.match(/expires_in=([^&]*)/)[1];
 			window.setTimeout(() => accessToken = null, expiresIn * 1000);
 			window.history.pushState('Access Token', null, '/');
 			return accessToken;
@@ -23,20 +23,21 @@ let Spotify = {
 	},
 
 	search(term) {
-		fetch('https://api.spotify.com/v1/search?type=track' + '&client_id=' + clientId + '&q=' + term, {headers: {Authorization: `Bearer ${accessToken}`}})
+		this.getAccessToken();
+		return fetch(`https://api.spotify.com/v1/search?type=track&q=${term}`, {headers: {Authorization: `Bearer ${accessToken}`}})
 		.then(response => {
-			console.log(response);
 			if(response.ok) {
 				return response.json();
 			}
-		})
+			throw new Error('Request Failed!');
+		}, networkError => console.log(networkError.message))
 		.then(jsonResponse => {
 			console.log(jsonResponse);
 			if(jsonResponse.tracks.length === 0) {
 				return [];
 			}
 			else {
-				jsonResponse.tracks.map(track => {
+				return jsonResponse.tracks.items.map(track => {
 					return {
 						id: track.id,
 						name: track.name,
@@ -50,53 +51,53 @@ let Spotify = {
 	},
 
 	savePlaylist(playlistName, trackUris) {
+		this.getAccessToken();
 		if(!playlistName && !trackUris) {
 			return;
 		} 
 		else {
-			const token = this.getAccessToken();
-			const headers = { 'Authorization': 'Bearer ' + token };
-			let userId = '';
-
-			fetch('https://api.spotify.com/v1/me', headers).then(response => {
+			let userId;
+			let playlistId;
+			return fetch('https://api.spotify.com/v1/me', {headers: {Authorization: `Bearer ${accessToken}`}})
+			.then(response => {
 				if(response.ok) {
 					return response.json();
 				}
-			})
+				throw new Error('Request Failed!');
+			}, networkError => console.log(networkError.message))
 			.then(jsonResponse => {
-				userId = jsonResponse.id;
-			});
-
-			let playlistID = fetch('/v1/users/' + userId + '/playlists', {
+				return userId = jsonResponse.id;
+			}).then(() => {
+				fetch(`https://api.spotify.com/v1/users/${userId}/playlists`, {
 				method: 'POST',
-				headers: headers,
-				body: JSON.stringify({
-					name: playlistName, 
-					uris: ["spotify:track:4iV5W9uYEdYUVa79Axb7Rh","spotify:track:1301WleyT98MSxVHPZCA6M"]
+				headers: {Authorization: `Bearer ${accessToken}`},
+				body: JSON.stringify({name: playlistName})
 				})
-			}).then(response => {
-				if(response.ok) {
-					return response.json();
-				}
-			}).then(jsonResponse => {
-				return jsonResponse.id;
-			});
-
-			playlistID = fetch('/v1/users/' + userId + '/playlists/' + playlistID + '/tracks', {
-				method: 'POST',
-				headers: headers,
-				body: JSON.stringify({
-					name: playlistName, 
-					uris: ["spotify:track:4iV5W9uYEdYUVa79Axb7Rh","spotify:track:1301WleyT98MSxVHPZCA6M"]
+				.then(response => {
+					if(response.ok) {
+						return response.json();
+					}
+					throw new Error('Request Failed!');
+				}, networkError => console.log(networkError.message))
+				.then(jsonResponse => {
+					return playlistId = jsonResponse.id;
+				});
+			}).then(() => {
+				return fetch(`https://api.spotify.com/v1/users/${userId}/playlists/${playlistId}/tracks`, {
+					method: 'POST',
+					headers: {Authorization: `Bearer ${accessToken}`},
+					body: JSON.stringify({uris: trackUris})
 				})
-			}).then(response => {
-				if(response.ok) {
-					return response.json();
-				}
-			}).then(jsonResponse => {
-				return jsonResponse.id;
+				.then(response => {
+					if(response.ok) {
+						return response.json();
+					}
+					throw new Error('Request Failed!');
+				}, networkError => console.log(networkError.message))
+				.then(jsonResponse => {
+					return jsonResponse.id;
+				});
 			});
-
 		}
 
 	}

@@ -80,7 +80,6 @@ class App extends Component {
   }
 
   render() {
-    Spotify.getAccessToken();
     return (
       <div>
         <h1>Ja<span className="highlight">mmm</span>ing</h1>
