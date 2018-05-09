@@ -1,5 +1,4 @@
 import React, { Component } from 'react';
-import ReactDOM from 'react-dom';
 import './App.css';
 import SearchBar from '../SearchBar/SearchBar';
 import Playlist from '../Playlist/Playlist';
@@ -64,8 +63,13 @@ class App extends Component {
     let trackURIs = [];
     this.state.playlistTracks.forEach(track => {
       trackURIs.push(track.uri);
-    })
-    return trackURIs;
+    });
+    Spotify.savePlaylist(this.state.playlistName, trackURIs);
+
+    this.setState({
+      playlistName: 'New Playlist',
+      playlistTracks: []
+    });
   }
 
   search(term) {
